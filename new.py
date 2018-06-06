@@ -66,7 +66,7 @@ def fc_layer(flatten, output_size, use_relu=True, name=None):
 			return tf.nn.relu(tf.add(tf.matmul(flatten, output), b), name='relu'+name[-1])
 		return tf.nn.softmax(tf.add(tf.matmul(flatten, output), b), name='softmax'+name[-1])
 		
-files, labels = read_dataset('C:\\Users\\nngbao\\Downloads\\face_triplet\\data\\face')
+files, labels = read_dataset('/localhome/localuser/ml/face')
 a = DataSet(files, labels)
 t1 = a.get_files()
 t2 = a.get_labels()
@@ -80,7 +80,7 @@ with g.as_default():
 	y = tf.placeholder(tf.int32, shape=[None], name='real_label')
 	y_onehot = tf.placeholder(tf.int32, shape=[None, 10], name='onehot_real_label')
 	with tf.variable_scope('FEATURE_EXTRACTOR_L'):
-		conv_l1 = conv_layer(x, [5, 5, 3, 16], [1, 2, 2, 1], force_maxpool=False, name='CONV_L1')
+		conv_l1 = conv_layer(x, [5, 5, 3, 16], [1, 1, 1, 1], name='CONV_L1')
 		conv_l2 = conv_layer(conv_l1, [3, 3, 16, 32], [1, 1, 1, 1], name='CONV_L2')
 		#conv_l3 = conv_layer(conv_l2, [3, 3, 32, 32], [1, 1, 1, 1], name='CONV_L3')
 		conv_l3 = conv_layer(conv_l2, [2, 2, 32, 64], [1, 1, 1, 1], name='CONV_L3')
@@ -97,7 +97,7 @@ with g.as_default():
 	triplet_loss = tf.contrib.losses.metric_learning.triplet_semihard_loss(y, l2_norm_l)
 	cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_onehot, logits=softmax))
 	total_loss = triplet_loss + cross_entropy_loss
-	
+	accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(softmax, 1), tf.argmax(y_onehot, 1)), tf.float32))
 	first_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "FEATURE_EXTRACTOR_L")
 	second_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "FC_SOFTMAX_L1")
 	
@@ -118,7 +118,7 @@ with g.as_default():
 	
 	merged_summary_op = tf.summary.merge_all()
 	
-	summary_writer = tf.summary.FileWriter('/tmp', graph=tf.get_default_graph())
+	summary_writer = tf.summary.FileWriter('/localhome/localuser/ml/tmp', graph=tf.get_default_graph())
 	saver = tf.train.Saver()
 	
 	sess = tf.Session()
@@ -141,12 +141,14 @@ with g.as_default():
 
 		_, _, _triplet_loss, _cross_entropy_loss, summary = sess.run([first_train_ops, second_train_ops, triplet_loss, cross_entropy_loss, merged_summary_op], feed_dict={x: batch_x, y: batch_y, y_onehot: _y_onehot, keep_prob: 0.5})
 		if step % 100 == 0:
+			train_accuracy = sess.run([accuracy], feed_dict={x: batch_x, y_onehot: _y_onehot, keep_prob: 1.})
 			#train_accuracy = accuracy.eval({x: batch_x, y: batch_y, keep_prob: 1.0}, sess)
-			print('step %d, triplet_loss %f' % (step, _triplet_loss))
+			print('step %d, triplet_loss %f, cross_entropy_loss %f, total_loss %f, accuracy %f' % (step, _triplet_loss, _cross_entropy_loss, (_triplet_loss + _cross_entropy_loss), train_accuracy[-1]))
+#			print('step %d, triplet_loss %f' % (step, _triplet_loss))
 			summary_writer.add_summary(summary, step)
 			summary_writer.flush()
 		
-	save_path = saver.save(sess, '/tmp/model' + "/model.ckpt", global_step=step)
+	save_path = saver.save(sess, '/localhome/localuser/ml/model' + "/model.ckpt", global_step=step)
 	#logging.info("Model saved in file: %s" % save_path)
 	
 	'''print(conv_l1)
