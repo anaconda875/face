@@ -77,29 +77,31 @@ image = np.asarray(Image.open(t1[5])) / 255.
 g = tf.Graph()
 with g.as_default():
 	x = tf.placeholder(tf.float32, shape=[None, 96, 96, 3], name='input_data')
-	y = tf.placeholder(tf.int32, shape=[None], name='real_label')
-	y_onehot = tf.placeholder(tf.int32, shape=[None, 10], name='onehot_real_label')
-	with tf.variable_scope('FEATURE_EXTRACTOR_L'):
+	y = tf.placeholder(tf.float32, shape=[None], name='real_label')
+	y_onehot = tf.placeholder(tf.float32, shape=[None, 10], name='onehot_real_label')
+	with tf.variable_scope('FEATURE_EXTRACTOR'):
 		conv_l1 = conv_layer(x, [5, 5, 3, 16], [1, 1, 1, 1], name='CONV_L1')
 		conv_l2 = conv_layer(conv_l1, [3, 3, 16, 32], [1, 1, 1, 1], name='CONV_L2')
 		#conv_l3 = conv_layer(conv_l2, [3, 3, 32, 32], [1, 1, 1, 1], name='CONV_L3')
 		conv_l3 = conv_layer(conv_l2, [2, 2, 32, 56], [1, 1, 1, 1], name='CONV_L3')
-		conv_l4 = conv_layer(conv_l3, [1, 1, 56, 72], [1, 1, 1, 1], name='CONV_L4')
+		conv_l4 = conv_layer(conv_l3, [2, 2, 56, 72], [1, 1, 1, 1], name='CONV_L4')
 		flatten = flatten_layer(conv_l4, 'FLATTEN_L')
 		fc_l1 = fc_layer(flatten, [2592, 1024], name='FC_L1')
 		keep_prob = tf.placeholder(tf.float32)
 		drop_l = tf.nn.dropout(fc_l1, keep_prob)
-		fc_l2 = fc_layer(drop_l, [1024, 192], name='FC_L2')
+		fc_l2 = fc_layer(drop_l, [1024, 256], name='FC_L2')
 		l2_norm_l = tf.nn.l2_normalize(fc_l2, axis=1)
-		
-	softmax = fc_layer(fc_l2, [192, 10], False, 'FC_SOFTMAX_L1')
+
+	with tf.variable_scope('CLASSIFIER'):
+		fc_l3 = fc_layer(fc_l2, [256, 192], name='FC_L3')
+		softmax = fc_layer(fc_l3, [192, 10], False, 'FC_SOFTMAX_L4')
 	
 	triplet_loss = tf.contrib.losses.metric_learning.triplet_semihard_loss(y, l2_norm_l)
 	cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_onehot, logits=softmax))
 	total_loss = triplet_loss + cross_entropy_loss
 	accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(softmax, 1), tf.argmax(y_onehot, 1)), tf.float32))
-	first_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "FEATURE_EXTRACTOR_L")
-	second_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "FC_SOFTMAX_L1")
+	first_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "FEATURE_EXTRACTOR")
+	second_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "CLASSIFIER")
 	
 	global_step = tf.Variable(0, trainable=False)
 	learning_rate = tf.where(tf.greater_equal(global_step, 10000),
