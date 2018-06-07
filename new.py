@@ -101,8 +101,8 @@ with g.as_default():
 	cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_onehot, logits=softmax))
 	total_loss = triplet_loss + cross_entropy_loss
 	accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(softmax, 1), tf.argmax(y_onehot, 1)), tf.float32))
-	first_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "FEATURE_EXTRACTOR")
-	second_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "CLASSIFIER")
+	first_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'FEATURE_EXTRACTOR')
+	second_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'CLASSIFIER')
 	
 	global_step = tf.Variable(0, trainable=False)
 	learning_rate = tf.where(tf.greater_equal(global_step, 8000),
@@ -115,9 +115,9 @@ with g.as_default():
 	first_train_ops = tf.train.AdamOptimizer(learning_rate).minimize(triplet_loss, global_step=global_step, var_list=first_train_vars)
 	second_train_ops = tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy_loss, var_list=second_train_vars)
 	
-	tf.summary.scalar("triplet_loss", triplet_loss)
-	tf.summary.scalar("cross_entropy_loss", cross_entropy_loss)
-	tf.summary.scalar("total_loss", total_loss)
+	tf.summary.scalar('triplet_loss', triplet_loss)
+	tf.summary.scalar('cross_entropy_loss', cross_entropy_loss)
+	tf.summary.scalar('total_loss', total_loss)
 	
 	merged_summary_op = tf.summary.merge_all()
 	
@@ -125,10 +125,17 @@ with g.as_default():
 	saver = tf.train.Saver()
 	
 	sess = tf.Session()
-	sess.run(tf.global_variables_initializer())
+	checkpoint = tf.train.get_checkpoint_state('C:\\tmp\\model')
+	meta_graph_path = checkpoint.model_checkpoint_path
+	#saver.restore(sess, tf.train.latest_checkpoint('C:\\tmp\\model'))
+	try:
+		saver.restore(sess, tf.train.latest_checkpoint('C:\\tmp\\model'))
+	except:
+		print('IFGHUDGHUREHGUIREHGUIREHGUIREHGUIRHGUREHGUREHGUIR')
+		sess.run(tf.global_variables_initializer())
 	
 	
-	for step in range (28000):
+	for step in range (int(meta_graph_path.split('-')[-1]), 20000):
 		batch_x, batch_y = a.next_batch(40)
 		_x = []
 		_y_onehot = []
@@ -145,14 +152,13 @@ with g.as_default():
 		_, _, _triplet_loss, _cross_entropy_loss, summary = sess.run([first_train_ops, second_train_ops, triplet_loss, cross_entropy_loss, merged_summary_op], feed_dict={x: batch_x, y: batch_y, y_onehot: _y_onehot, keep_prob: 0.55})
 		if step % 100 == 0:
 			train_accuracy = sess.run([accuracy], feed_dict={x: batch_x, y_onehot: _y_onehot, keep_prob: 1.})
-			#train_accuracy = accuracy.eval({x: batch_x, y: batch_y, keep_prob: 1.0}, sess)
 			print('global_step %s, triplet_loss %.4f, cross_entropy_loss %.4f, total_loss %.4f, accuracy %.2f' % (tf.train.global_step(sess, global_step), _triplet_loss, _cross_entropy_loss, (_triplet_loss + _cross_entropy_loss), train_accuracy[-1]))
-#			print(', triplet_loss %f' % (step, _triplet_loss))
 			summary_writer.add_summary(summary, step)
 			summary_writer.flush()
+			save_path = saver.save(sess, '/tmp/model' + '/model.ckpt', global_step=global_step)
 		
-	save_path = saver.save(sess, '/tmp/model' + "/model.ckpt", global_step=step)
-	#logging.info("Model saved in file: %s" % save_path)
+	save_path = saver.save(sess, '/tmp/model' + '/model.ckpt', global_step=global_step)
+	#logging.info('Model saved in file: %s' % save_path)
 	
 	'''print(conv_l1)
 	print(conv_l2)
