@@ -1,9 +1,12 @@
 from PIL import Image
-
+import tensorflow as tf
 import numpy as np
 import os
-import tensorflow as tf
 
+with tf.gfile.GFile('C:\\Users\\nngbao\\out.pb', "rb") as f:
+	graph_def = tf.GraphDef()
+	graph_def.ParseFromString(f.read())
+	
 def read_dataset(root):
 	i = -1
 	files = []
@@ -43,42 +46,16 @@ class DataSet(object):
 			self.files, self.labels = zip(*combined)
 		end = self.flag
 		return self.files[start:end], self.labels[start:end]
-		
-
-graph = tf.Graph()
-with graph.as_default():
-	sess = tf.Session()
-	restore = tf.train.import_meta_graph("./tmp/model/model.ckpt-12000.meta")
-	restore.restore(sess, tf.train.latest_checkpoint("./tmp/model"))
 	
-	output_graph_def = tf.graph_util.convert_variables_to_constants(sess, graph.as_graph_def(), ['FEATURE_EXTRACTOR/l2_normalize']) 
-	with tf.gfile.GFile('C:\\Users\\nngbao\\out.pb', "wb") as f:
-		f.write(output_graph_def.SerializeToString())
-		
-
-	'''saver = tf.train.Saver()
-	saver.restore(sess, tf.train.latest_checkpoint("./ml/model"))'''
-	
-	
-	'''ops = graph.get_operations()
-	for op in ops:
-		print(op.name)'''
-		
-		
-	all_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'CLASSIFIER')
-	'''for v in all_vars:
-		v_ = sess.run(v)
-		print(v)
-		#print(v_)
-		print()'''
-
+with tf.Graph().as_default() as graph:
+	tf.import_graph_def(graph_def, name="")
 	x = graph.get_tensor_by_name("input_data:0")
 	keep_prob = graph.get_tensor_by_name("FEATURE_EXTRACTOR/Placeholder:0")
 	test = graph.get_tensor_by_name("FEATURE_EXTRACTOR/l2_normalize:0")
 	#files, labels = read_dataset('./face')
 	files, labels = read_dataset('./face')
 	a = DataSet(files, labels)
-
+	sess = tf.Session(graph=graph)
 	for i in range(1):
 		#batch_x, batch_y = a.next_batch(1)
 		a = np.array(sess.run([test], feed_dict={x: [np.asarray(Image.open('./face/train/lam truong/lam truong73.png')) / 255.], keep_prob: 1.}))
@@ -87,21 +64,3 @@ with graph.as_default():
 		b = np.array(sess.run([test], feed_dict={x: [np.asarray(Image.open('./face/train/lam truong/lam truong66.png')) / 255.], keep_prob: 1.}))
 		dist = np.linalg.norm(a-b)
 		print(dist)
-		#print(res2)
-		#print(batch_y[-1])
-		print()
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		

@@ -22,6 +22,7 @@ for file in os.listdir(root):
 		roi_gray = gray[y:y+h, x:x+w]
 		try:
 			roi_color = img[y-int(0.1*h):y+h+int(0.1*h), x-int(0.1*w):x+w+int(0.1*w)]
+			roi_color = cv2.resize(roi_color, (96, 96)) 
 			filename = str(i) + '.jpg'
 			print(filename)
 			cv2.imwrite(os.path.join(out, filename), roi_color)
